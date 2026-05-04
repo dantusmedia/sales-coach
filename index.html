@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sales Coach — Simulador de Ventas con IA</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0d0d0f;
+    --surface: #16161a;
+    --surface2: #1e1e24;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.12);
+    --text: #f0efe8;
+    --muted: #888880;
+    --accent: #c8f060;
+    --accent2: #60d4f0;
+    --accent3: #f060a8;
+    --user-bubble: #1e2a1a;
+    --client-bubble: #1a1a2a;
+    --tip-bg: #1a2210;
+  }
+
+  body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
+  h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
+
+  #setup-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 2rem 1rem; min-height: 100vh; }
+
+  .setup-header { text-align: center; margin-bottom: 2.5rem; }
+  .setup-header .tag { display: inline-block; font-size: 11px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent); border: 1px solid rgba(200,240,96,0.3); padding: 4px 12px; border-radius: 100px; margin-bottom: 1rem; }
+  .setup-header h1 { font-size: clamp(2rem, 5vw, 3.2rem); font-weight: 800; line-height: 1.1; color: var(--text); margin-bottom: 0.75rem; }
+  .setup-header h1 span { color: var(--accent); }
+  .setup-header p { font-size: 15px; color: var(--muted); max-width: 460px; line-height: 1.6; }
+
+  .setup-card { background: var(--surface); border: 1px solid var(--border2); border-radius: 20px; padding: 2rem; width: 100%; max-width: 560px; }
+  .setup-section { margin-bottom: 1.5rem; }
+  .setup-section label { display: block; font-size: 12px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+  .setup-section input, .setup-section select, .setup-section textarea { width: 100%; background: var(--surface2); border: 1px solid var(--border2); border-radius: 10px; padding: 12px 14px; font-family: 'DM Sans', sans-serif; font-size: 14px; color: var(--text); outline: none; transition: border-color 0.2s; }
+  .setup-section input:focus, .setup-section select:focus, .setup-section textarea:focus { border-color: var(--accent); }
+  .setup-section select option { background: #1e1e24; }
+  .setup-section textarea { resize: vertical; min-height: 80px; line-height: 1.5; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+  .btn-primary { width: 100%; background: var(--accent); color: #0d0d0f; border: none; border-radius: 12px; padding: 14px 24px; font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 700; cursor: pointer; transition: opacity 0.2s, transform 0.1s; margin-top: 0.5rem; }
+  .btn-primary:hover { opacity: 0.88; }
+  .btn-primary:active { transform: scale(0.98); }
+
+  #sim-screen { display: none; grid-template-columns: 1fr 320px; min-height: 100vh; }
+
+  .chat-panel { display: flex; flex-direction: column; border-right: 1px solid var(--border); height: 100vh; }
+  .chat-topbar { padding: 1rem 1.25rem; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+  .client-info { display: flex; align-items: center; gap: 10px; }
+  .avatar { width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, #2a1a3a, #1a2a3a); border: 1px solid var(--border2); display: flex; align-items: center; justify-content: center; font-family: 'Syne', sans-serif; font-size: 12px; font-weight: 700; color: var(--accent2); }
+  .client-name { font-size: 14px; font-weight: 500; }
+  .client-role { font-size: 11px; color: var(--muted); }
+  .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); display: inline-block; margin-right: 5px; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+  .status-label { font-size: 11px; color: var(--muted); }
+  .btn-reset { background: transparent; border: 1px solid var(--border2); border-radius: 8px; color: var(--muted); font-size: 12px; padding: 6px 12px; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all 0.2s; }
+  .btn-reset:hover { border-color: var(--accent3); color: var(--accent3); }
+
+  .chat-messages { flex: 1; overflow-y: auto; padding: 1.25rem; display: flex; flex-direction: column; gap: 12px; }
+  .chat-messages::-webkit-scrollbar { width: 4px; }
+  .chat-messages::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+  .msg { display: flex; flex-direction: column; max-width: 82%; }
+  .msg.user { align-self: flex-end; align-items: flex-end; }
+  .msg.client { align-self: flex-start; align-items: flex-start; }
+  .msg-label { font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; font-weight: 500; }
+  .msg-bubble { padding: 10px 14px; border-radius: 14px; font-size: 14px; line-height: 1.55; }
+  .msg.user .msg-bubble { background: var(--user-bubble); border: 1px solid rgba(200,240,96,0.15); border-bottom-right-radius: 4px; color: var(--text); }
+  .msg.client .msg-bubble { background: var(--client-bubble); border: 1px solid var(--border2); border-bottom-left-radius: 4px; color: var(--text); }
+  .msg.system { align-self: center; align-items: center; max-width: 100%; }
+  .msg.system .msg-bubble { background: transparent; border: 1px dashed var(--border2); color: var(--muted); font-size: 12px; text-align: center; border-radius: 8px; padding: 8px 16px; }
+
+  .typing-indicator { display: flex; gap: 4px; align-items: center; padding: 12px 14px; background: var(--client-bubble); border: 1px solid var(--border2); border-radius: 14px; border-bottom-left-radius: 4px; width: fit-content; }
+  .typing-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); animation: typing 1.2s infinite; }
+  .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+  .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes typing { 0%,60%,100% { transform: translateY(0); opacity: 0.4; } 30% { transform: translateY(-4px); opacity: 1; } }
+
+  .chat-input-area { padding: 1rem 1.25rem; border-top: 1px solid var(--border); flex-shrink: 0; }
+  .input-row { display: flex; gap: 8px; align-items: flex-end; }
+  .input-row textarea { flex: 1; background: var(--surface2); border: 1px solid var(--border2); border-radius: 12px; padding: 10px 14px; font-family: 'DM Sans', sans-serif; font-size: 14px; color: var(--text); outline: none; resize: none; min-height: 44px; max-height: 120px; line-height: 1.5; transition: border-color 0.2s; }
+  .input-row textarea:focus { border-color: rgba(200,240,96,0.4); }
+  .input-row textarea::placeholder { color: var(--muted); }
+  .btn-send { width: 44px; height: 44px; background: var(--accent); border: none; border-radius: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: opacity 0.2s, transform 0.1s; }
+  .btn-send:hover { opacity: 0.85; }
+  .btn-send:active { transform: scale(0.95); }
+  .btn-send svg { width: 18px; height: 18px; }
+  .input-hint { font-size: 11px; color: var(--muted); margin-top: 6px; }
+
+  .coach-panel { display: flex; flex-direction: column; height: 100vh; background: var(--surface); overflow-y: auto; }
+  .coach-panel::-webkit-scrollbar { width: 4px; }
+  .coach-panel::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+  .coach-topbar { padding: 1rem 1.25rem; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+  .coach-title { font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700; color: var(--accent); letter-spacing: 0.06em; text-transform: uppercase; }
+  .coach-subtitle { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .coach-content { padding: 1rem 1.25rem; display: flex; flex-direction: column; gap: 1rem; }
+
+  .context-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; padding: 1rem; }
+  .context-card h4 { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+  .context-row { display: flex; justify-content: space-between; align-items: baseline; padding: 4px 0; border-bottom: 1px solid var(--border); font-size: 12px; }
+  .context-row:last-child { border-bottom: none; }
+  .context-row span:first-child { color: var(--muted); }
+  .context-row span:last-child { color: var(--text); font-weight: 500; text-align: right; max-width: 160px; }
+
+  .tips-section h4 { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
+  .tip-card { background: var(--tip-bg); border: 1px solid rgba(200,240,96,0.15); border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; font-size: 13px; line-height: 1.5; color: var(--text); animation: tipIn 0.4s ease; }
+  @keyframes tipIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+  .tip-label { font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); margin-bottom: 4px; }
+  .tip-card.warning { background: #1f1a0e; border-color: rgba(240,160,96,0.2); }
+  .tip-card.warning .tip-label { color: #f0a060; }
+  .tip-card.info { background: #0e1a1f; border-color: rgba(96,212,240,0.2); }
+  .tip-card.info .tip-label { color: var(--accent2); }
+
+  .score-section { background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; padding: 1rem; }
+  .score-section h4 { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
+  .score-item { margin-bottom: 10px; }
+  .score-item-header { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px; }
+  .score-item-header span:first-child { color: var(--muted); }
+  .score-item-header span:last-child { font-weight: 500; }
+  .score-bar { height: 4px; background: var(--border2); border-radius: 2px; overflow: hidden; }
+  .score-fill { height: 100%; background: var(--accent); border-radius: 2px; transition: width 0.6s ease; }
+  .score-fill.mid { background: #f0a060; }
+  .score-fill.low { background: var(--accent3); }
+
+  .empty-tips { text-align: center; padding: 2rem 1rem; color: var(--muted); font-size: 13px; line-height: 1.6; }
+  .empty-tips .icon { font-size: 24px; margin-bottom: 8px; display: block; }
+
+  @media (max-width: 680px) {
+    #sim-screen { grid-template-columns: 1fr; }
+    .coach-panel { display: none; }
+    .chat-panel { height: 100vh; }
+  }
+</style>
+</head>
+<body>
+
+<div id="setup-screen">
+  <div class="setup-header">
+    <div class="tag">Sales Coach IA</div>
+    <h1>Practica tus ventas<br><span>sin miedo a fallar</span></h1>
+    <p>Rellena el contexto, simula una reunión real con un cliente escéptico y recibe coaching en tiempo real.</p>
+  </div>
+  <div class="setup-card">
+    <div class="grid-2">
+      <div class="setup-section">
+        <label>Tu profesión / rol</label>
+        <input type="text" id="prof" placeholder="Ej: Consultor de marketing" />
+      </div>
+      <div class="setup-section">
+        <label>Tu tarifa o precio</label>
+        <input type="text" id="price" placeholder="Ej: 2.500€/mes" />
+      </div>
+    </div>
+    <div class="setup-section">
+      <label>¿Qué vendes?</label>
+      <textarea id="product" placeholder="Ej: Estrategia de contenidos y gestión de redes sociales para clínicas dentales..."></textarea>
+    </div>
+    <div class="grid-2">
+      <div class="setup-section">
+        <label>Tipo de cliente</label>
+        <select id="client-type">
+          <option value="pyme">Dueño de PYME</option>
+          <option value="b2b">Director / Manager corporativo</option>
+          <option value="freelance">Otro freelancer / profesional</option>
+          <option value="startup">Startup / emprendedor</option>
+          <option value="retail">Comercio local / retail</option>
+        </select>
+      </div>
+      <div class="setup-section">
+        <label>Dificultad</label>
+        <select id="difficulty">
+          <option value="medio">Medio — algo escéptico</option>
+          <option value="dificil">Difícil — muy resistente</option>
+          <option value="facil">Fácil — curioso y abierto</option>
+        </select>
+      </div>
+    </div>
+    <div class="setup-section">
+      <label>Idioma</label>
+      <select id="lang">
+        <option value="es">Español</option>
+        <option value="en">English</option>
+      </select>
+    </div>
+    <button class="btn-primary" onclick="startSim()">Iniciar simulación</button>
+  </div>
+</div>
+
+<div id="sim-screen">
+  <div class="chat-panel">
+    <div class="chat-topbar">
+      <div class="client-info">
+        <div class="avatar" id="client-avatar">CL</div>
+        <div>
+          <div class="client-name" id="client-name-display">Cliente</div>
+          <div class="client-role" id="client-role-display">Simulación activa</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px">
+        <div><span class="status-dot"></span><span class="status-label">En vivo</span></div>
+        <button class="btn-reset" onclick="resetSim()">Nueva sesión</button>
+      </div>
+    </div>
+    <div class="chat-messages" id="chat-messages"></div>
+    <div class="chat-input-area">
+      <div class="input-row">
+        <textarea id="user-input" placeholder="Escribe tu respuesta al cliente..." rows="1"
+          onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+        <button class="btn-send" onclick="sendMessage()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#0d0d0f" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="22" y1="2" x2="11" y2="13"></line>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+          </svg>
+        </button>
+      </div>
+      <div class="input-hint">Enter para enviar · Shift+Enter para nueva línea</div>
+    </div>
+  </div>
+
+  <div class="coach-panel">
+    <div class="coach-topbar">
+      <div class="coach-title">Coach IA</div>
+      <div class="coach-subtitle">Análisis y consejos en tiempo real</div>
+    </div>
+    <div class="coach-content">
+      <div class="context-card">
+        <h4>Contexto de la sesión</h4>
+        <div id="context-rows"></div>
+      </div>
+      <div class="score-section" id="score-section" style="display:none">
+        <h4>Métricas de conversación</h4>
+        <div id="score-items"></div>
+      </div>
+      <div class="tips-section">
+        <h4>Consejos activos</h4>
+        <div id="tips-container">
+          <div class="empty-tips">
+            <span class="icon">💬</span>
+            Los consejos aparecerán aquí conforme avance la conversación.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API_ENDPOINT = '/api/chat';
+const MODEL = 'claude-sonnet-4-20250514';
+
+let state = {
+  prof: '', price: '', product: '', clientType: '', difficulty: '', lang: 'es',
+  messages: [], scores: { rapport: 50, clarity: 50, objections: 50 }, turnCount: 0
+};
+
+function startSim() {
+  const prof = document.getElementById('prof').value.trim();
+  const product = document.getElementById('product').value.trim();
+  if (!prof || !product) { alert('Por favor rellena al menos tu profesión y lo que vendes.'); return; }
+  state.prof = prof;
+  state.price = document.getElementById('price').value.trim() || 'a consultar';
+  state.product = product;
+  state.clientType = document.getElementById('client-type').value;
+  state.difficulty = document.getElementById('difficulty').value;
+  state.lang = document.getElementById('lang').value;
+  state.messages = []; state.turnCount = 0;
+  state.scores = { rapport: 30, clarity: 30, objections: 30 };
+  document.getElementById('setup-screen').style.display = 'none';
+  document.getElementById('sim-screen').style.display = 'grid';
+  renderContext(); renderScores();
+  addSystemMsg(state.lang === 'es' ? 'Simulación iniciada. El cliente va a responder primero.' : 'Simulation started. The client will speak first.');
+  callAPI('client', '__START__');
+}
+
+function resetSim() {
+  document.getElementById('sim-screen').style.display = 'none';
+  document.getElementById('setup-screen').style.display = 'flex';
+  document.getElementById('chat-messages').innerHTML = '';
+  document.getElementById('tips-container').innerHTML = '<div class="empty-tips"><span class="icon">💬</span>Los consejos aparecerán aquí conforme avance la conversación.</div>';
+  document.getElementById('score-section').style.display = 'none';
+  state.messages = [];
+}
+
+function renderContext() {
+  const clientLabels = { pyme: 'Dueño de PYME', b2b: 'Director corporativo', freelance: 'Freelancer / Profesional', startup: 'Startup founder', retail: 'Comercio local' };
+  const diffLabels = { facil: 'Fácil', medio: 'Medio', dificil: 'Difícil' };
+  const rows = [['Tu rol', state.prof], ['Precio', state.price], ['Cliente', clientLabels[state.clientType]], ['Dificultad', diffLabels[state.difficulty]]];
+  document.getElementById('context-rows').innerHTML = rows.map(([k,v]) => `<div class="context-row"><span>${k}</span><span>${v}</span></div>`).join('');
+  const initials = { pyme:'JP', b2b:'DG', freelance:'CM', startup:'AR', retail:'ML' };
+  const names = { pyme:'Javier P.', b2b:'Diana G.', freelance:'Carlos M.', startup:'Ana R.', retail:'Marcos L.' };
+  const roles = { pyme:'Gerente General', b2b:'Director de Operaciones', freelance:'Profesional independiente', startup:'Co-founder & CEO', retail:'Propietario' };
+  document.getElementById('client-avatar').textContent = initials[state.clientType] || 'CL';
+  document.getElementById('client-name-display').textContent = names[state.clientType] || 'Cliente';
+  document.getElementById('client-role-display').textContent = roles[state.clientType] || '';
+}
+
+function renderScores() {
+  document.getElementById('score-section').style.display = 'block';
+  const labels = { rapport: 'Conexión con el cliente', clarity: 'Claridad del mensaje', objections: 'Manejo de objeciones' };
+  document.getElementById('score-items').innerHTML = Object.entries(state.scores).map(([k,v]) => {
+    const cls = v >= 65 ? '' : v >= 40 ? 'mid' : 'low';
+    return `<div class="score-item"><div class="score-item-header"><span>${labels[k]}</span><span>${v}%</span></div><div class="score-bar"><div class="score-fill ${cls}" style="width:${v}%"></div></div></div>`;
+  }).join('');
+}
+
+function buildClientSystem() {
+  const diffMap = {
+    facil: 'Eres curioso y abierto, con algunas dudas razonables. No eres hostil.',
+    medio: 'Eres escéptico. Has tenido malas experiencias antes. Haces preguntas difíciles pero eres justo.',
+    dificil: 'Eres muy resistente. Crees que no necesitas este servicio. Pones objeciones directas: precio, resultados, tiempo.'
+  };
+  const ctypeMap = {
+    pyme: 'dueño de una PYME con 10-30 empleados, orientado al control de costes',
+    b2b: 'director en empresa mediana, orientado a KPIs medibles',
+    freelance: 'profesional independiente que valora su autonomía y desconfía de compromisos largos',
+    startup: 'fundador de startup con presupuesto ajustado que necesita ROI rápido',
+    retail: 'dueño de comercio local, poco familiarizado con el mundo digital'
+  };
+  const lang = state.lang === 'es' ? 'Responde SIEMPRE en español.' : 'Always respond in English.';
+  return `You are a realistic potential client. You are a ${ctypeMap[state.clientType]}.
+${diffMap[state.difficulty]}
+The consultant wants to sell you: ${state.product}. Price: ${state.price}. Their role: ${state.prof}.
+Act naturally. Be direct. Show real emotions. NEVER break character. NEVER give advice. NEVER reveal you are an AI.
+If the consultant is convincing, slightly lower your resistance. If they are generic or weak, increase it.
+${lang} Keep responses between 2-4 sentences.
+Start with a skeptical opening remark about why you don't think you need their service.`;
+}
+
+function buildCoachSystem(clientReply, userReply) {
+  return `You are an expert sales coach analyzing a sales conversation in real time.
+Context: Consultant selling "${state.product}" at ${state.price} to a ${state.clientType}.
+Client just said: "${clientReply}"
+${userReply ? `Consultant replied: "${userReply}"` : 'Conversation just started.'}
+Respond ONLY with raw JSON. No markdown. No explanation. Format:
+{"tips":[{"type":"success|warning|info","label":"short label","text":"1-2 sentence tip"}],"scores":{"rapport":0-100,"clarity":0-100,"objections":0-100}}
+${state.lang === 'es' ? 'Write all tip text in Spanish.' : 'Write all tip text in English.'}
+Give 2-3 specific, actionable tips based on what just happened.`;
+}
+
+async function callAPI(mode, userMsg) {
+  showTyping();
+  const isStart = userMsg === '__START__';
+  const systemPrompt = mode === 'client' ? buildClientSystem() : buildCoachSystem('', '');
+
+  const msgs = isStart
+    ? [{ role: 'user', content: state.lang === 'es' ? 'Comienza la reunión con tu comentario inicial escéptico.' : 'Start with your initial skeptical remark.' }]
+    : [...state.messages.map(m => ({ role: m.role === 'user' ? 'user' : 'assistant', content: m.text })), { role: 'user', content: userMsg }];
+
+  try {
+    const res = await fetch(API_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: MODEL, max_tokens: 1000, system: systemPrompt, messages: msgs })
+    });
+    const data = await res.json();
+    const reply = data.content?.[0]?.text || (state.lang === 'es' ? 'Sin respuesta.' : 'No response.');
+    hideTyping();
+    addMsg('client', reply);
+    state.messages.push({ role: 'client', text: reply });
+    state.turnCount++;
+    callCoach(reply, isStart ? null : userMsg);
+  } catch(e) {
+    hideTyping();
+    addMsg('client', state.lang === 'es' ? '[Error de conexión]' : '[Connection error]');
+  }
+}
+
+async function callCoach(clientReply, userReply) {
+  try {
+    const res = await fetch(API_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: MODEL, max_tokens: 800, messages: [{ role: 'user', content: buildCoachSystem(clientReply, userReply) }] })
+    });
+    const data = await res.json();
+    const raw = data.content?.[0]?.text || '{}';
+    let parsed;
+    try { parsed = JSON.parse(raw); } catch { parsed = {}; }
+    if (parsed.tips) renderTips(parsed.tips);
+    if (parsed.scores) {
+      state.scores = {
+        rapport: Math.min(100, Math.max(0, parsed.scores.rapport || state.scores.rapport)),
+        clarity: Math.min(100, Math.max(0, parsed.scores.clarity || state.scores.clarity)),
+        objections: Math.min(100, Math.max(0, parsed.scores.objections || state.scores.objections))
+      };
+      renderScores();
+    }
+  } catch(e) {}
+}
+
+function renderTips(tips) {
+  if (!tips?.length) return;
+  document.getElementById('tips-container').innerHTML = tips.map(t =>
+    `<div class="tip-card ${t.type === 'warning' ? 'warning' : t.type === 'info' ? 'info' : ''}">
+      <div class="tip-label">${t.label || 'Consejo'}</div><div>${t.text}</div>
+    </div>`
+  ).join('');
+}
+
+async function sendMessage() {
+  const input = document.getElementById('user-input');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = ''; input.style.height = 'auto';
+  addMsg('user', text);
+  state.messages.push({ role: 'user', text });
+  await callAPI('client', text);
+}
+
+function handleKey(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }
+function autoResize(el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 120) + 'px'; }
+
+function addMsg(role, text) {
+  const container = document.getElementById('chat-messages');
+  const div = document.createElement('div');
+  div.className = `msg ${role}`;
+  const label = role === 'user' ? (state.lang === 'es' ? 'Tú (consultor)' : 'You (consultant)') : (state.lang === 'es' ? 'Cliente' : 'Client');
+  div.innerHTML = `<div class="msg-label">${label}</div><div class="msg-bubble">${escHtml(text)}</div>`;
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+}
+
+function addSystemMsg(text) {
+  const container = document.getElementById('chat-messages');
+  const div = document.createElement('div');
+  div.className = 'msg system';
+  div.innerHTML = `<div class="msg-bubble">${escHtml(text)}</div>`;
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+}
+
+let typingEl = null;
+function showTyping() {
+  const container = document.getElementById('chat-messages');
+  typingEl = document.createElement('div');
+  typingEl.className = 'msg client'; typingEl.id = 'typing';
+  typingEl.innerHTML = `<div class="msg-label">${state.lang === 'es' ? 'Cliente' : 'Client'}</div><div class="typing-indicator"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>`;
+  container.appendChild(typingEl);
+  container.scrollTop = container.scrollHeight;
+}
+
+function hideTyping() { const el = document.getElementById('typing'); if (el) el.remove(); }
+function escHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>'); }
+</script>
+</body>
+</html>
